@@ -1,8 +1,8 @@
-import express from "express";
-import fetch from "node-fetch";
-import * as nsfwjs from "nsfwjs";
-import * as tf from "@tensorflow/tfjs-node";
-import { createCanvas, loadImage } from "canvas";
+import express from 'express';
+import fetch from 'node-fetch';
+import * as nsfw from 'nsfwjs';
+import * as tf from '@tensorflow/tfjs-node';
+import { createCanvas, loadImage } from 'canvas';
 
 const app = express();
 app.use(express.json());
@@ -10,27 +10,26 @@ app.use(express.json());
 let model;
 
 (async () => {
-  model = await nsfwjs.load(); // load NSFWJS model once
-  console.log("✅ NSFWJS model loaded");
+  model = await nsfw.load('https://s3.amazonaws.com/nsfwdetector/nsfwjs.zip');
+  console.log('✅ NSFWJS model loaded from CloudFront');
 })();
 
-app.post("/moderate", async (req, res) => {
+app.post('/moderate', async (req, res) => {
   try {
     const { image_url } = req.body;
-    if (!image_url) return res.status(400).json({ error: "Missing image_url" });
+    if (!image_url) return res.status(400).json({ error: 'Missing image_url' });
 
     const response = await fetch(image_url);
     const buffer = await response.arrayBuffer();
     const img = await loadImage(Buffer.from(buffer));
     const canvas = createCanvas(img.width, img.height);
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext('2d');
     ctx.drawImage(img, 0, 0);
 
     const predictions = await model.classify(canvas);
 
-    // Determine if image is unsafe
-    const nsfwScore = predictions.find(p => p.className === "Porn")?.probability || 0;
-    const unsafe = nsfwScore > 0.3; // tweak threshold
+    const nsfwScore = predictions.find(p => p.className === 'Porn')?.probability || 0;
+    const unsafe = nsfwScore > 0.3;
 
     res.json({
       safe: !unsafe,
@@ -39,11 +38,11 @@ app.post("/moderate", async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to process image" });
+    res.status(500).json({ error: 'Failed to process image' });
   }
 });
 
-app.get("/", (req, res) => res.json({ message: "✅ NSFWJS API online!" }));
+app.get('/', (req, res) => res.json({ message: '✅ NSFWJS API online!' }));
 
 const port = process.env.PORT || 10000;
 app.listen(port, () => console.log(`Server running on port ${port}`));
